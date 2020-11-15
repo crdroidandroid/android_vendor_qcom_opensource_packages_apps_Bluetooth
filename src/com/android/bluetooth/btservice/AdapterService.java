@@ -136,7 +136,7 @@ import com.android.internal.util.ArrayUtils;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.NetworkInfo;
-import android.net.wifi.SoftApConfiguration;
+import android.net.wifi.WifiConfiguration;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 
@@ -593,6 +593,9 @@ public class AdapterService extends Service {
         mProfileObserver = new ProfileObserver(getApplicationContext(), this, new Handler());
         mProfileObserver.start();
 
+        mDatabaseManager = new DatabaseManager(this);
+        mDatabaseManager.start(MetadataDatabase.createDatabase(this));
+
         // Phone policy is specific to phone implementations and hence if a device wants to exclude
         // it out then it can be disabled by using the flag below.
         if (getResources().getBoolean(com.android.bluetooth.R.bool.enable_phone_policy)) {
@@ -606,9 +609,6 @@ public class AdapterService extends Service {
 
         mActiveDeviceManager = new ActiveDeviceManager(this, new ServiceFactory());
         mActiveDeviceManager.start();
-
-        mDatabaseManager = new DatabaseManager(this);
-        mDatabaseManager.start(MetadataDatabase.createDatabase(this));
 
         mSilenceDeviceManager = new SilenceDeviceManager(this, new ServiceFactory(),
                 Looper.getMainLooper());
@@ -3304,7 +3304,7 @@ public class AdapterService extends Service {
         return mSilenceDeviceManager.getSilenceMode(device);
     }
 
-    boolean setPhonebookAccessPermission(BluetoothDevice device, int value) {
+    public boolean setPhonebookAccessPermission(BluetoothDevice device, int value) {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
                 "Need BLUETOOTH PRIVILEGED permission");
         SharedPreferences pref = getSharedPreferences(PHONEBOOK_ACCESS_PERMISSION_PREFERENCE_FILE,
@@ -3330,7 +3330,7 @@ public class AdapterService extends Service {
                 : BluetoothDevice.ACCESS_REJECTED;
     }
 
-    boolean setMessageAccessPermission(BluetoothDevice device, int value) {
+    public boolean setMessageAccessPermission(BluetoothDevice device, int value) {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
                 "Need BLUETOOTH PRIVILEGED permission");
         SharedPreferences pref = getSharedPreferences(MESSAGE_ACCESS_PERMISSION_PREFERENCE_FILE,
@@ -3356,7 +3356,7 @@ public class AdapterService extends Service {
                 : BluetoothDevice.ACCESS_REJECTED;
     }
 
-    boolean setSimAccessPermission(BluetoothDevice device, int value) {
+    public boolean setSimAccessPermission(BluetoothDevice device, int value) {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
                 "Need BLUETOOTH PRIVILEGED permission");
         SharedPreferences pref =
@@ -4229,10 +4229,13 @@ public class AdapterService extends Service {
         try {
 
             WifiManager mWifiManager = (WifiManager)getSystemService(Context.WIFI_SERVICE);
-            final SoftApConfiguration config = mWifiManager.getSoftApConfiguration();
-            if ((mWifiManager != null) && ((mWifiManager.isWifiEnabled() ||
+            final WifiConfiguration config = mWifiManager.getWifiApConfiguration();
+            if ((mWifiManager != null) && (mWifiManager.isWifiEnabled() ||
                 ((mWifiManager.getWifiApState() == WifiManager.WIFI_AP_STATE_ENABLED) &&
-                ((config.getBand() & SoftApConfiguration.BAND_5GHZ) != 0))))) {
+                ((config != null) && ((config.apBand == WifiConfiguration.AP_BAND_5GHZ) ||
+                (config.apBand == WifiConfiguration.AP_BAND_ANY) ||
+                (config.apBand == WifiConfiguration.AP_BAND_DUAL)))))) {
+
                 return true;
             }
             return false;
@@ -4273,13 +4276,13 @@ public class AdapterService extends Service {
     native boolean getDevicePropertyNative(byte[] address, int type);
 
     /*package*/
-    native boolean createBondNative(byte[] address, int transport);
+    public native boolean createBondNative(byte[] address, int transport);
 
     /*package*/
     native boolean createBondOutOfBandNative(byte[] address, int transport, OobData oobData);
 
     /*package*/
-    native boolean removeBondNative(byte[] address);
+    public native boolean removeBondNative(byte[] address);
 
     /*package*/
     native boolean cancelBondNative(byte[] address);
